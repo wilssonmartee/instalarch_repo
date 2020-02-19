@@ -16,9 +16,9 @@
 #
 #
 #Pulling dependencies
-##sudo pacman -Syy
+sudo pacman -Syy
 ##sudo pacman -S --noconfirm zenity
-#sudo pacman -S --noconfirm arch-install-scripts archiso pacman-contrib zenity
+sudo pacman -S --noconfirm arch-install-scripts archiso pacman-contrib zenity
 
 #
 # Selecting the Drive
@@ -836,24 +836,4 @@ zenity --question --height=500 --width=450 --title="$title" --ok-label="Siguient
 if [ "$?" = "1" ]
 	then exit
 fi
-bootloader
 partition
-configure
-root_password
-user_password
-##changeshell
-kernel
-vbox
-#nvidia
-revengerepo
-multilib
-##packagemanager
-archuserrepo
-cups
-##displaymanager
-desktop
-##firefox
-##libreoffice
-installapps
-bootloader
-installing
