@@ -249,7 +249,7 @@ auto_partition() {
 		mount ${dev}2 /mnt
 		mkdir -p /mnt/boot
 		mount ${dev}1 /mnt/boot
-		echo "# Creando archivo swap [BIOS]..."
+		echo "# Creando archivo swap [UEFI]..."
 		echo "80"
 		touch /mnt/swapfile
 		dd if=/dev/zero of=/mnt/swapfile bs=1M count=${swap_space}
@@ -415,7 +415,7 @@ fi
 usernamez
 }
 usernamez(){
-username=$(zenity --entry --title="$title" --width=450 --ok-label="Siguiente" --cancel-label="Atras" --text "Por favor introduzca el nombre de usuario para el nuevo usario.\nTodo en letras minusculas." --entry-text "username")
+username=$(zenity --entry --title="$title" --width=450 --ok-label="Siguiente" --cancel-label="Atras" --text "Por favor introduzca el nombre de usuario para el nuevo usuario.\nTodo en letras minusculas." --entry-text "username")
 if [ "$?" = "1" ]
 then hostnamez
 fi
@@ -427,7 +427,7 @@ root_password
 
 root_password() {
 rtpasswd=$(zenity --entry --title="$title" --width=450 --ok-label="Siguiente" --cancel-label="Atras" --text "Introduzca la contraseña para root." --hide-text)
-rtpasswd2=$(zenity --entry --title="$title" --text "Vuelva a introducirla." --hide-text)
+rtpasswd2=$(zenity --entry --title="$title" --width=450 --text "Vuelva a introducirla." --hide-text)
 	if [ "$rtpasswd" != "$rtpasswd2" ]
 		then zenity --error --height=100 --width=350 --title="$title" --text "Las contraseñas no coinciden, vuelva a intentarlo."
 		root_password
@@ -459,13 +459,6 @@ kernel
 }
 
 ##
-changeshell() {
-shell=$(zenity --list --radiolist --ok-label="Siguiente" --cancel-label="Atras" --height=500 --width=650 --title="$title" --text "What shell would you like to use?" --column Select --column Choice TRUE zsh FALSE bash FALSE fish)
-if [ "$?" = "1" ]
-then user_password
-fi
-
-}
 
 kernel() {
 kernel=$(zenity --list  --ok-label="Siguiente" --cancel-label="Atras" --radiolist --height=500 --width=650 --title="$title" --text "Hay varios nucleos(kernel) disponibles:\n \n*El mas comun el el kernel linux.\nEste kernel es el más actualizado y proporciona el mejor soporte de hardware. Sin embargo, \npodría haber posibles errores en este núcleo, a pesar de las pruebas.\n \n*El kernel linux-lts esta enfocado mas en la estabilidad.\nSe basa en un núcleo antiguo, por lo que puede carecer de algunas características más nuevas.\n \n*El kernel linux-hardened esta enfocado en la seguridad\nContiene el parche de Grsecurity Patchset y PaX para una maxima seguridad.\n \n*El kernel linux-zen es el resultado de la colaboracion de hackers\npara proveer el mejor kernel posible para uso diario.\n \nSeleccione el kernel que desea instalar." --column "Seleccion" --column "Kernel" TRUE linux FALSE linux-lts FALSE linux-hardened FALSE linux-zen)
@@ -556,12 +549,20 @@ lsblk -lno NAME,TYPE,SIZE | grep 'disk' | awk '{print "/dev/" $1 " " $3}' | sort
 devices1=` awk '{print "FALSE " $0}' .devices1.txt `
 #
 
-grub=$(zenity --question --height=100 --width=350 --title="$title" --text "Desea instalar un cargador de arranque?\nLa respuesta usualmente es si, a menos que tenga otro arrancador que desee conservar")
+grub=$(zenity --question --height=100 --width=350 --ok-label="Si" --cancel-label="No" --title="$title" --text "Desea instalar un cargador de arranque?\nLa respuesta usualmente es si, a menos que tenga otro arrancador que desee conservar")
 grb="$?"
 if [ "$grb" = "0" ]
-	then grub_device=$(zenity --list --radiolist --ok-label="Si" --cancel-label="No" --height=500 --width=450 --title="$title" --text "Where do you want to install the bootloader?" --column Seleccion --column Disco --column Tamaño $devices1)
+	then grub_device=$(zenity --list --radiolist --height=500 --ok-label="Siguiente" --cancel-label="Atras" --width=650 --title="$title" --text "Seleccione el disco para instalar el cargador de arranque." --column Seleccion --column "Disco        " --column Tamaño $devices1)
 probe="$?"
+if [ "$?" = "1" ]
+then bootloader
 fi
+if [ "$grub_device" = "" ]
+then bootloader
+fi
+
+fi
+installing
 }
 
 # Installation
@@ -781,6 +782,7 @@ arch_chroot "echo $hname > /etc/hostname"
 echo "%wheel ALL=(ALL) ALL" >> /mnt/etc/sudoers
 
 # selecting shell
+shell="zsh"
 if [ "$shell" = "zsh" ]
 then arch_chroot "pacman -S --noconfirm zsh zsh-syntax-highlighting zsh-completions grml-zsh-config;chsh -s /usr/bin/zsh $username"
 elif [ "$shell" = "bash" ]
