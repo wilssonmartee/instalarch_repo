@@ -27,11 +27,6 @@ man_partition() {
 ##list=` lsblk -lno NAME,TYPE,SIZE,MOUNTPOINT | grep "disk" `
 
 ##zenity --info --height=500 --width=450 --title="$title" --text "Below is a list of the available drives on your system:\n\n$list" 
-> .devices.txt
-lsblk -lno NAME,TYPE | grep 'disk' | awk '{print "/dev/" $1 " " $2}' | sort -u > .devices.txt
-sed -i 's/\<disk\>//g' .devices.txt
-devices=` awk '{print "FALSE " $0}' .devices.txt `
-
 #
 > .devices1.txt
 lsblk -lno NAME,TYPE,SIZE | grep 'disk' | awk '{print "/dev/" $1 " " $3}' | sort -u > .devices1.txt
@@ -58,8 +53,9 @@ root_part
 }
 
 root_part() {
+	greplist="Disk"
 	# Select root partition
-	root_part=$(zenity --list --radiolist --ok-label="Siguiente" --cancel-label="Atras" --height=500 --width=650 --title="$title" --text="Seleccione la particion para ROOT\nAdvertencia, la lista muestra todas las particiones disponibles.\nPor favor elige con cuidado." --column 'Seleccione' --column "Particiones                   " --column 'Tamaño' $(sudo fdisk -l $dev | grep dev | grep -v Disk | awk '{print $1 " " $5}' | awk '{ printf " FALSE ""\0"$0"\0" }'))
+	root_part=$(zenity --list --radiolist --ok-label="Siguiente" --cancel-label="Atras" --height=500 --width=650 --title="$title" --text="Seleccione la particion para ROOT\nAdvertencia, la lista muestra todas las particiones disponibles.\nPor favor elige con cuidado." --column 'Seleccione' --column "Particiones                   " --column 'Tamaño' $(sudo fdisk -l $dev | grep dev | grep -v $greplist | awk '{print $1 " " $5}' | awk '{ printf " FALSE ""\0"$0"\0" }'))
 	#mounting root partition
 
 if [ "$?" = "1" ]
@@ -68,25 +64,34 @@ fi
 
 if [ "$root_part" = "" ]
 then root_part
+else
+greplist=$greplist"\|"$root_part
 fi
 > .root_part.txt
 touch .root_part.txt    
 echo $root_part >> .root_part.txt
+
+mount $root_part /mnt
 swap_partition
 }
 swap_partition() {
 	# Swap partition?
+			
 	zenity --question --height=100 --width=350 --ok-label="Si" --cancel-label="No" --title="$title" --text "\nDesea utilizar una particion swap?                         "
 		if [ "$?" = "0" ]
-		then swap_part=$(zenity --list  --radiolist --ok-label="Siguiente" --cancel-label="Atras" --height=500 --width=650 --title="$title" --text="Seleccione la particion SWAP\nAdvertencia, la lista muestra todas las particiones disponibles.\nPor favor elige con cuidado." --column 'Seleccione' --column "Particiones                   " --column 'Tamaño' $(sudo fdisk -l $dev | grep dev | grep -v Disk | awk '{print $1 " " $5}' | awk '{ printf " FALSE ""\0"$0"\0" }'))
+		then swap_part=$(zenity --list  --radiolist --ok-label="Siguiente" --cancel-label="Atras" --height=500 --width=650 --title="$title" --text="Seleccione la particion SWAP\nAdvertencia, la lista muestra todas las particiones disponibles.\nPor favor elige con cuidado." --column 'Seleccione' --column "Particiones                   " --column 'Tamaño' $(sudo fdisk -l $dev | grep dev | grep -v $greplist | awk '{print $1 " " $5}' | awk '{ printf " FALSE ""\0"$0"\0" }'))
 
 		if [ "$?" = "1" ]
 		then root_part
 		fi
-
 		if [ "$swap_part" = "" ]
 		then swap_partition
+		else
+		greplist=$greplist"\|"$swap_part
 		fi
+		
+		swap_number=$(echo $swap_part | sed "s#$dev##g")
+		Parted "set $swap_number swap on"
 		mkswap $swap_part
 		swapon $swap_part
 		else
@@ -104,12 +109,14 @@ swap_partition() {
 	
 		uefi_swap=$(($swap_space + 513))
 
-		(echo "# Creando archivo swap..."
+		(
+		echo "# Creando archivo swap..."
 		touch /mnt/swapfile
 		dd if=/dev/zero of=/mnt/swapfile bs=1M count=${swap_space}
 		chmod 600 /mnt/swapfile
 		mkswap /mnt/swapfile
-		swapon /mnt/swapfile) | zenity --progress --title="$title" --text "Creando archivo swap..." --width=450 --pulsate --auto-close --no-cancel
+		swapon /mnt/swapfile
+		) | zenity --progress --title="$title" --text "Creando archivo swap..." --width=450 --pulsate --auto-close --no-cancel
 		fi
 		fi
 
@@ -121,7 +128,9 @@ boot_partition() {
 
 		zenity --question --height=100 --width=350 --ok-label="Si" --cancel-label="No" --title="$title" --text "Desea utilizar una particion separada para /boot?"
 		if [ "$?" = "0" ]
-		then boot_part=$(zenity --list  --radiolist --ok-label="Siguiente" --cancel-label="Atras" --height=500 --width=650 --title="$title" --text="Seleccione la particion para BOOT\nAdvertencia, la lista muestra todas las particiones disponibles.\nPor favor elige con cuidado." --column 'Seleccione' --column "Particiones                   " --column 'Tamaño' $(sudo fdisk -l $dev | grep dev | grep -v Disk | awk '{print $1 " " $5}' | awk '{ printf " FALSE ""\0"$0"\0" }'))
+		then 
+			
+			boot_part=$(zenity --list  --radiolist --ok-label="Siguiente" --cancel-label="Atras" --height=500 --width=650 --title="$title" --text="Seleccione la particion para BOOT\nAdvertencia, la lista muestra todas las particiones disponibles.\nPor favor elige con cuidado." --column 'Seleccione' --column "Particiones                   " --column 'Tamaño' $(sudo fdisk -l $dev | grep dev | grep -v $greplist | awk '{print $1 " " $5}' | awk '{ printf " FALSE ""\0"$0"\0" }'))
 
 		if [ "$?" = "1" ]
 		then swap_partition
@@ -129,8 +138,12 @@ boot_partition() {
 
 		if [ "$boot_part" = "" ]
 		then boot_partition
+		else
+		greplist=$greplist"\|"$boot_part
 		fi		
-			
+
+		boot_number=$(echo $boot_part | sed "s#$dev##g")
+		Parted "set $boot_number boot on"
 		mkdir -p /mnt/boot
 		mount $boot_part /mnt/boot
 
@@ -143,15 +156,18 @@ home_partition() {
 	# Home Partition?
 		zenity --question --height=100 --width=350 --ok-label="Si" --cancel-label="No" --title="$title" --text "Desea utilizar una particion separada para /home?"
 		if [ "$?" = "0" ]
-		then home_part=$(zenity --list  --radiolist --ok-label="Siguiente" --cancel-label="Atras" --height=500 --width=650 --title="$title" --text="Seleccione la particion para HOME\nAdvertencia, la lista muestra todas las particiones disponibles.\nPor favor elige con cuidado." --column 'Seleccione' --column "Particiones                   " --column 'Tamaño' $(sudo fdisk -l $dev | grep dev | grep -v Disk | awk '{print $1 " " $5}' | awk '{ printf " FALSE ""\0"$0"\0" }'))
+
+		then home_part=$(zenity --list  --radiolist --ok-label="Siguiente" --cancel-label="Atras" --height=500 --width=650 --title="$title" --text="Seleccione la particion para HOME\nAdvertencia, la lista muestra todas las particiones disponibles.\nPor favor elige con cuidado." --column 'Seleccione' --column "Particiones                   " --column 'Tamaño' $(sudo fdisk -l $dev | grep dev | grep -v $greplist | awk '{print $1 " " $5}' | awk '{ printf " FALSE ""\0"$0"\0" }'))
 		# mounting home partition
 		if [ "$?" = "1" ]
-		then swap_partition
+		then boot_partition
 		fi
 
 		if [ "$home_part" = "" ]
-		then boot_partition
-		fi	
+		then home_partition
+		else
+		greplist=$greplist"\|"$home_part
+		fi		
 		mkdir -p /mnt/home
 		mount $home_part /mnt/home
 		fi
@@ -160,9 +176,7 @@ home_partition() {
 }
 
 auto_partition() {
-	##list=` lsblk -lno NAME,TYPE,SIZE,MOUNTPOINT | grep "disk" `
 
-	##zenity --info --height=500 --width=450 --title="$title" --text "Below is a list of the available drives on your system:\n\n$list" 
 	> .devices.txt
 	lsblk -lno NAME,TYPE | grep 'disk' | awk '{print "/dev/" $1 " " $2}' | sort -u > .devices.txt
 	sed -i 's/\<disk\>//g' .devices.txt
@@ -209,7 +223,8 @@ auto_partition() {
 	#BIOS or UEFI
     if [ "$SYSTEM" = "BIOS" ]
         then
-	       (echo "# Formateando disco [BIOS]..."
+	       (
+	       	echo "# Formateando disco [BIOS]..."
 		echo "25"
 	        dd if=/dev/zero of=$dev bs=512 count=1
 		echo "# Creando particiones [BIOS]..."
@@ -229,17 +244,19 @@ auto_partition() {
 		mkswap /mnt/swapfile
 		swapon /mnt/swapfile
 		echo "99"
-		swapfile="yes") | zenity --progress --percentage=0 --title="$title" --width=450 --no-cancel --auto-close
+		swapfile="yes"
+		) | zenity --progress --percentage=0 --title="$title" --width=450 --no-cancel --auto-close
 
 
 	    else
-            	(echo "# Formateando disco [UEFI]..."
+        (
+        echo "# Formateando disco [UEFI]..."
 		echo "25"
             	dd if=/dev/zero of=$dev bs=512 count=1
 		echo "# Creando particiones [UEFI]..."
 		echo "40"
-            	Parted "mklabel gpt"
-            	Parted "mkpart primary fat32 1MiB 513MiB"
+        Parted "mklabel gpt"
+        Parted "mkpart primary fat32 1MiB 513MiB"
 		Parted "mkpart primary ext4 513MiB 100%"
 		Parted "set 1 boot on"
 		mkfs.fat -F32 ${dev}1
@@ -257,7 +274,8 @@ auto_partition() {
 		mkswap /mnt/swapfile
 		swapon /mnt/swapfile
 		echo "99"
-		swapfile="yes") | zenity --progress --percentage=0 --title="$title" --width=450 --no-cancel --auto-close
+		swapfile="yes"
+		) | zenity --progress --percentage=0 --title="$title" --width=450 --no-cancel --auto-close
 	fi
 	configure		
 }
@@ -539,20 +557,16 @@ bootloader
 
 # bootloader?
 bootloader() {
-> .devices.txt
-lsblk -lno NAME,TYPE | grep 'disk' | awk '{print "/dev/" $1 " " $2}' | sort -u > .devices.txt
-sed -i 's/\<disk\>//g' .devices.txt
-devices=` awk '{print "FALSE " $0}' .devices.txt `
-
-> .devices1.txt
-lsblk -lno NAME,TYPE,SIZE | grep 'disk' | awk '{print "/dev/" $1 " " $3}' | sort -u > .devices1.txt
-devices1=` awk '{print "FALSE " $0}' .devices1.txt `
-#
 
 grub=$(zenity --question --height=100 --width=350 --ok-label="Si" --cancel-label="No" --title="$title" --text "Desea instalar un cargador de arranque?\nLa respuesta usualmente es si, a menos que tenga otro arrancador que desee conservar")
 grb="$?"
 if [ "$grb" = "0" ]
-	then grub_device=$(zenity --list --radiolist --height=500 --ok-label="Siguiente" --cancel-label="Atras" --width=650 --title="$title" --text "Seleccione el disco para instalar el cargador de arranque." --column Seleccion --column "Disco        " --column Tamaño $devices1)
+	then 
+		> .devices1.txt
+lsblk -lno NAME,TYPE,SIZE | grep 'disk' | awk '{print "/dev/" $1 " " $3}' | sort -u > .devices1.txt
+devices1=` awk '{print "FALSE " $0}' .devices1.txt `
+#
+		grub_device=$(zenity --list --radiolist --height=500 --ok-label="Siguiente" --cancel-label="Atras" --width=650 --title="$title" --text "Seleccione el disco para instalar el cargador de arranque." --column Seleccion --column "Disco        " --column Tamaño $devices1)
 probe="$?"
 if [ "$?" = "1" ]
 then bootloader
@@ -584,7 +598,6 @@ echo "5"
 echo "# Actualizando cache..."
 pacman -Syy
 echo "10"
-arch_chroot "pacman -Syy"
 echo "15"
 #installing base
 echo "# Instalando Base..."
