@@ -165,7 +165,7 @@ auto_partition() {
 	##zenity --info --height=500 --width=450 --title="$title" --text "Below is a list of the available drives on your system:\n\n$list" 
 	> .devices.txt
 	lsblk -lno NAME,TYPE | grep 'disk' | awk '{print "/dev/" $1 " " $2}' | sort -u > .devices.txt
-	sed -i 's/\<disk\>//g' devices.txt
+	sed -i 's/\<disk\>//g' .devices.txt
 	devices=` awk '{print "FALSE " $0}' .devices.txt `
 	#
 	> .devices1.txt
@@ -480,7 +480,7 @@ desktop
 
 desktop() {
 # Choosing Desktop
-desktops=$(zenity --list --height=500 --width=650 --ok-label="Siguiente" --cancel-label="Atras" --title="$title" --radiolist --text "Cual entorno de escritorio desea instalar?" --column Seleccion --column Escritorio --column Descripcion FALSE "awesome" "Awesome WM + Pack Customizado")
+desktops=$(zenity --list --height=500 --width=650 --ok-label="Siguiente" --cancel-label="Atras" --title="$title" --radiolist --text "Cual entorno de escritorio desea instalar?" --column Seleccion --column Escritorio --column Descripcion TRUE "awesome" "Awesome WM + Pack Customizado")
 if [ "$?" = "1" ]
 then videocont
 fi
@@ -574,7 +574,7 @@ if [ "$?" = "1" ]
 else 
 ## (
 # sorting pacman mirrors
-(
+#(
 echo "# Buscando los servidores mas rapidos..."
 rank=$(curl -s "https://www.archlinux.org/mirrorlist/?country="$country"&protocol=https&use_mirror_status=on" | sed -e 's/^#Server/Server/' -e '/^#/d' | rankmirrors -n 10 -)
 echo -e "$rank" > /etc/pacman.d/mirrorlist
@@ -602,22 +602,22 @@ elif [ "$kernel" = "linux-zen" ]
 
 fi
 echo "30"
-) | zenity --progress --percentage=0 --title="$title" --auto-close --width=450 --no-cancel
+#) | zenity --progress --percentage=0 --title="$title" --auto-close --width=450 --no-cancel
 #generating fstab
-(
+#(
 echo "# Generando tabla de particiones..."
 genfstab -p /mnt >> /mnt/etc/fstab
 if grep -q "/mnt/swapfile" "/mnt/etc/fstab"; then
 sed -i '/swapfile/d' /mnt/etc/fstab
 echo "/swapfile		none	swap	defaults	0	0" >> /mnt/etc/fstab
 fi
-) | zenity --progress --title="$title" --width=450 --no-cancel --pulsate --auto-close
+#) | zenity --progress --title="$title" --width=450 --no-cancel --pulsate --auto-close
 # installing video and audio packages
 
-(
+#(
 echo "35"
 echo "# Instalando complementos..."
-pacstrap /mnt  mesa xorg-server xorg-apps xorg-xinit xorg-twm xterm xorg-drivers alsa-utils pulseaudio pulseaudio-alsa xf86-input-synaptics xf86-input-keyboard xf86-input-mouse xf86-input-libinput intel-ucode b43-fwcutter networkmanager nm-connection-editor network-manager-applet polkit-gnome ttf-dejavu gnome-keyring xdg-user-dirs gvfs
+pacstrap /mnt  mesa xorg-server xorg-apps xorg-xinit xorg-twm xterm xorg-drivers alsa-utils pulseaudio pulseaudio-alsa xf86-input-synaptics xf86-input-keyboard xf86-input-mouse xf86-input-libinput intel-ucode b43-fwcutter networkmanager nm-connection-editor network-manager-applet polkit-gnome ttf-dejavu gnome-keyring xdg-user-dirs gvfs $videocontroller
 echo "40"
 # virtualbox
 echo "# Instalando escritorio..."
@@ -657,7 +657,7 @@ echo "55"
 # installing pamac-aur
 if [ "$pm" = "0" ]
 
-echo "# Instalando gestor de paquetees grafico..."
+echo "# Instalando gestor de paquetes grafico..."
 then echo -e "\t[spooky_aur]" >> /mnt/etc/pacman.conf;echo "SigLevel = Optional TrustAll" >> /mnt/etc/pacman.conf;echo -e "Server = https://raw.github.com/spookykidmm/spooky_aur/master/x86_64\n" >> /mnt/etc/pacman.conf
 sudo pacman -Syy 
 arch_chroot "pacman -Syy"
@@ -806,8 +806,8 @@ echo "# Desmontando particiones..."
 umount -R /mnt
 echo "100"
 echo "# Instalacion finalizada!"
-) | zenity --progress --percentage=0 --title="$title" --ok-label="Reiniciar" --width=450 --no-cancel
-reboot
+#) | zenity --progress --percentage=0 --title="$title" --ok-label="Reiniciar" --width=450 --no-cancel
+#reboot
 fi
 }
 
