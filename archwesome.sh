@@ -279,7 +279,7 @@ fi
 
 configure() {
 # Getting Locale
-country=$(zenity --list --radiolist --ok-label="Siguiente" --cancel-label="Salir" --title="$title" --height=500 --width=650 --column Seleccion --column Pais --text="Seleccion el codigo de su pais. Esto sera utilizado para buscar sevidores mas cerca de usted." TRUE TODOS FALSE AU FALSE AT FALSE BD FALSE BY FALSE BE FALSE BA FALSE BR FALSE BG FALSE CA FALSE CL FALSE CN FALSE CO FALSE HR FALSE CZ FALSE DE FALSE DK FALSE EE FALSE ES FALSE FR FALSE GB FALSE HU FALSE IE FALSE IL FALSE IN FALSE IT FALSE JP FALSE KR FALSE KZ FALSE LK FALSE LU FALSE LV FALSE MK FALSE NL FALSE NO FALSE NZ FALSE PT FALSE RO FALSE RS FALSE RU FALSE SU FALSE SG FALSE SK FALSE TR FALSE TW FALSE UA FALSE US FALSE UZ FALSE VN FALSE ZA)
+country=$(zenity --list --radiolist --ok-label="Siguiente" --cancel-label="Atras" --title="$title" --height=500 --width=650 --column Seleccion --column Pais --text="Seleccion el codigo de su pais. Esto sera utilizado para buscar sevidores mas cerca de usted." TRUE TODOS FALSE AU FALSE AT FALSE BD FALSE BY FALSE BE FALSE BA FALSE BR FALSE BG FALSE CA FALSE CL FALSE CN FALSE CO FALSE HR FALSE CZ FALSE DE FALSE DK FALSE EE FALSE ES FALSE FR FALSE GB FALSE HU FALSE IE FALSE IL FALSE IN FALSE IT FALSE JP FALSE KR FALSE KZ FALSE LK FALSE LU FALSE LV FALSE MK FALSE NL FALSE NO FALSE NZ FALSE PT FALSE RO FALSE RS FALSE RU FALSE SU FALSE SG FALSE SK FALSE TR FALSE TW FALSE UA FALSE US FALSE UZ FALSE VN FALSE ZA)
 
 if [ "$?" = "1" ]
 then partition
