@@ -169,6 +169,7 @@ home_partition() {
 		if [ "$home_part" = "" ]
 		then home_partition
 		else
+		(
 		greplist=$greplist"\|"$home_part
 		mkdir -p /mnt/home
 		mount $home_part /mnt/home
@@ -328,15 +329,13 @@ keymap
 
 
 keymap() {
-
-then keymap=$(zenity --list --radiolist --height=500 --ok-label="Siguiente" --cancel-label="Atras" --width=650 --ok-label="Siguiente" --cancel-label="Atras" --title="$title" --text="Seleccione su keymap (mapa del teclado)" --column Seleccion --column Keymap $(localectl list-keymaps | awk '{ printf " FALSE ""\0"$0"\0" }'))
+keymap=$(zenity --list --radiolist --height=500 --ok-label="Siguiente" --cancel-label="Atras" --width=650 --ok-label="Siguiente" --cancel-label="Atras" --title="$title" --text="Seleccione su keymap (mapa del teclado)" --column Seleccion --column Keymap $(localectl list-keymaps | awk '{ printf " FALSE ""\0"$0"\0" }'))
 if [ "$?" = "1" ]
-then variant
+then locales
 fi
 if [ "$keymap" = "" ]
 then keymap
 fi
-
 timezone
 }
 timezone() {
