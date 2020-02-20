@@ -596,7 +596,7 @@ fi
 (
 echo "25"
 echo "# Instalando complementos..."
-pacstrap /mnt networkmanager ifplugd xf86-input-synaptics git wget xdg-user-dirs acpi pulseaudio pulseaudio-alsa alsa-utils fzf ntfs-3g polkit-gnome shotwell awesome noto-fonts-emoji gedit htop lsb-release nano nautilus gparted neofetch network-manager-applet rofi scrot sddm ttf-dejavu udiskie unzip xfce4-power-manager termite hddtemp light
+pacstrap /mnt networkmanager ifplugd xf86-input-synaptics git wget xdg-user-dirs acpi pulseaudio pulseaudio-alsa alsa-utils fzf ntfs-3g polkit-gnome shotwell noto-fonts-emoji gedit htop lsb-release nano nautilus gparted neofetch network-manager-applet rofi scrot ttf-dejavu udiskie unzip xfce4-power-manager termite hddtemp reflector light
 echo "30"
 echo "# Instalando servidor grafico..."
 pacstrap /mnt xorg xorg-apps xorg-xinit xorg-twm xorg-xclock $videocontroller
@@ -767,7 +767,7 @@ fi
 # copying files and configs
 echo "# Descargando configuraciones..."
 echo "90"
-git clone https://github.com/wilssonmartee/config.git /mnt/
+git clone https://github.com/wilssonmartee/config.git /mnt/config
 echo "95"
 
 echo "# Guardando configuraciones..."
@@ -785,7 +785,8 @@ cp -rf /mnt/config/awesome/.oh-my-zsh /mnt/home/$username
 cp -rf /mnt/config/awesome/.zshrc /mnt/home/$username
 cp -rf /mnt/config/awesome/completion.zsh /mnt/usr/share/fzf
 
-cp -f /mnt/config/awesome/pacman.conf /mnt/etc/pacman.conf
+# Ojo
+##cp -f /mnt/config/awesome/pacman.conf /mnt/etc/pacman.conf
 echo "97"
 arch_chroot "chmod -R 755 /home/$username/.config"
 arch_chroot "chmod -R 755 /home/$username/.oh-my-zsh"
