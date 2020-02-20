@@ -24,9 +24,7 @@ sudo pacman -S --noconfirm arch-install-scripts archiso pacman-contrib zenity
 # Selecting the Drive
 
 man_partition() {
-##list=` lsblk -lno NAME,TYPE,SIZE,MOUNTPOINT | grep "disk" `
 
-##zenity --info --height=500 --width=450 --title="$title" --text "Below is a list of the available drives on your system:\n\n$list" 
 #
 > .devices1.txt
 lsblk -lno NAME,TYPE,SIZE | grep 'disk' | awk '{print "/dev/" $1 " " $3}' | sort -u > .devices1.txt
@@ -67,11 +65,13 @@ then root_part
 else
 greplist=$greplist"\|"$root_part
 fi
+(
 > .root_part.txt
 touch .root_part.txt    
 echo $root_part >> .root_part.txt
-
 mount $root_part /mnt
+) | zenity --progress --title="$title" --text "Montando particion root..." --width=450 --pulsate --auto-close --no-cancel
+
 swap_partition
 }
 swap_partition() {
@@ -89,15 +89,18 @@ swap_partition() {
 		else
 		greplist=$greplist"\|"$swap_part
 		fi
-		
+		(
 		swap_number=$(echo $swap_part | sed "s#$dev##g")
 		Parted "set $swap_number swap on"
 		mkswap $swap_part
 		swapon $swap_part
+		) | zenity --progress --title="$title" --text "Montando particion swap..." --width=450 --pulsate --auto-close --no-cancel
+
 		else
-	zenity --question --height=100 --width=350 --ok-label="Si" --cancel-label="No" --title="$title" --text "Desea crear un archivo swap?. Este proceso puede demorar."
+		zenity --question --height=100 --width=350 --ok-label="Si" --cancel-label="No" --title="$title" --text "Desea crear un archivo swap?. Este proceso puede demorar."
 		if [ "$?" = "0" ]
 	 	then swapfile="yes"
+	 	(
 		ram=$(grep MemTotal /proc/meminfo | awk '{print $2/1024}' | sed 's/\..*//')
 		# Find where swap partition stops
 		num=4000
@@ -109,8 +112,7 @@ swap_partition() {
 	
 		uefi_swap=$(($swap_space + 513))
 
-		(
-		echo "# Creando archivo swap..."
+		
 		touch /mnt/swapfile
 		dd if=/dev/zero of=/mnt/swapfile bs=1M count=${swap_space}
 		chmod 600 /mnt/swapfile
@@ -140,13 +142,14 @@ boot_partition() {
 		then boot_partition
 		else
 		greplist=$greplist"\|"$boot_part
-		fi		
-
+		fi	
+		(	
 		boot_number=$(echo $boot_part | sed "s#$dev##g")
 		Parted "set $boot_number boot on"
+		mkfs.fat -F32 $boot_part
 		mkdir -p /mnt/boot
 		mount $boot_part /mnt/boot
-
+		) | zenity --progress --title="$title" --text "Montando particion boot..." --width=450 --pulsate --auto-close --no-cancel
 		fi
 
 home_partition
@@ -167,9 +170,11 @@ home_partition() {
 		then home_partition
 		else
 		greplist=$greplist"\|"$home_part
-		fi		
 		mkdir -p /mnt/home
 		mount $home_part /mnt/home
+		) | zenity --progress --title="$title" --text "Montando particion home..." --width=450 --pulsate --auto-close --no-cancel
+		fi		
+
 		fi
 
 		configure
@@ -177,10 +182,6 @@ home_partition() {
 
 auto_partition() {
 
-	> .devices.txt
-	lsblk -lno NAME,TYPE | grep 'disk' | awk '{print "/dev/" $1 " " $2}' | sort -u > .devices.txt
-	sed -i 's/\<disk\>//g' .devices.txt
-	devices=` awk '{print "FALSE " $0}' .devices.txt `
 	#
 	> .devices1.txt
 	lsblk -lno NAME,TYPE,SIZE | grep 'disk' | awk '{print "/dev/" $1 " " $3}' | sort -u > .devices1.txt
@@ -237,16 +238,20 @@ auto_partition() {
 		echo "60"
 	        mount ${dev}1 /mnt
 		echo "# Creando archivo swap [BIOS]..."
-		echo "80"		
+		echo "80"	
+		) | zenity --progress --percentage=0 --title="$title" --width=450 --no-cancel --auto-close
+		(	
 		touch /mnt/swapfile
 		dd if=/dev/zero of=/mnt/swapfile bs=1M count=${swap_space}
 		chmod 600 /mnt/swapfile
 		mkswap /mnt/swapfile
 		swapon /mnt/swapfile
+		) | zenity --progress --title="$title" --text "Creando archivo swap..." --width=450 --pulsate --auto-close --no-cancel
+		(
+		echo "# Creando archivo swap [UEFI]..."
 		echo "99"
 		swapfile="yes"
 		) | zenity --progress --percentage=0 --title="$title" --width=450 --no-cancel --auto-close
-
 
 	    else
         (
@@ -268,11 +273,16 @@ auto_partition() {
 		mount ${dev}1 /mnt/boot
 		echo "# Creando archivo swap [UEFI]..."
 		echo "80"
+		) | zenity --progress --percentage=0 --title="$title" --width=450 --no-cancel --auto-close
+		(
 		touch /mnt/swapfile
 		dd if=/dev/zero of=/mnt/swapfile bs=1M count=${swap_space}
 		chmod 600 /mnt/swapfile
 		mkswap /mnt/swapfile
 		swapon /mnt/swapfile
+		) | zenity --progress --title="$title" --text "Creando archivo swap..." --width=450 --pulsate --auto-close --no-cancel
+		(
+		echo "# Creando archivo swap [UEFI]..."
 		echo "99"
 		swapfile="yes"
 		) | zenity --progress --percentage=0 --title="$title" --width=450 --no-cancel --auto-close
@@ -313,59 +323,13 @@ locale=$(zenity --list --radiolist --ok-label="Siguiente" --cancel-label="Atras"
 if [ "$?" = "1" ]
 then configure
 fi
-keyboard
-}
-
-keyboard() {
-zenity --question --height=100 --width=450 --ok-label="Si" --cancel-label="No" --title="$title" --text="Desea cambiar el modelo de su teclado? Por defecto es pc105"
-mod="$?"
-
-if [ "$mod" = "0" ]
-then model=$(zenity --list --radiolist --height=500 --ok-label="Siguiente" --cancel-label="Atras" --width=650 --title="$title" --text="Seleccione el modelo de su teclado" --column Seleccion --column Modelo $(localectl list-x11-keymap-models | awk '{ printf " FALSE ""\0"$0"\0" }'))
-
-if [ "$?" = "1" ]
-then locales
-fi
-if [ "$model" = "" ]
-then keyboard
-fi
-fi
-layout
-}
-
-layout() {
-layout=$(zenity --list --radiolist --height=500 --ok-label="Siguiente" --cancel-label="Atras" --width=650 --title="$title" --text="Seleccione su idioma del teclado, el codigo de su pais" --column Seleccion --column Distribucion $(localectl list-x11-keymap-layouts | awk '{ printf " FALSE ""\0"$0"\0" }'))
-if [ "$?" = "1" ]
-then keyboard
-fi
-if [ "$layout" = "" ]
-then layout
-fi
-
-variant
-}
-
-variant() {
-zenity --question --height=100 --ok-label="Si" --cancel-label="No" --width=350 --title="$title" --text="Desea cambiar la variante de su teclado?         "
-vary="$?"
-
-if [ "$vary" = "0" ]
-then variant=$(zenity --list --radiolist --height=500 --ok-label="Siguiente" --cancel-label="Atras" --width=650 --title="$title" --text="Seleccione su variante" --column Seleccion --column Variante $(localectl list-x11-keymap-variants | awk '{ printf " FALSE ""\0"$0"\0" }'))
-if [ "$?" = "1" ]
-then layout
-fi
-if [ "$variant" = "" ]
-then variant
-fi
-fi
 keymap
 }
-keymap() {
-zenity --question --height=100 --width=350 --ok-label="Si" --cancel-label="No" --title="$title" --text="Viste tu keymap en alguna de las opciones anteriores?"
-map="$?"
 
-if [ "$map" = "1" ]
-then keymap=$(zenity --list --radiolist --height=500 --ok-label="Siguiente" --cancel-label="Atras" --width=650 --ok-label="Siguiente" --cancel-label="Atras" --title="$title" --text="Seleccione su keymap" --column Seleccion --column Keymap $(localectl list-keymaps | awk '{ printf " FALSE ""\0"$0"\0" }'))
+
+keymap() {
+
+then keymap=$(zenity --list --radiolist --height=500 --ok-label="Siguiente" --cancel-label="Atras" --width=650 --ok-label="Siguiente" --cancel-label="Atras" --title="$title" --text="Seleccione su keymap (mapa del teclado)" --column Seleccion --column Keymap $(localectl list-keymaps | awk '{ printf " FALSE ""\0"$0"\0" }'))
 if [ "$?" = "1" ]
 then variant
 fi
@@ -373,19 +337,6 @@ if [ "$keymap" = "" ]
 then keymap
 fi
 
-loadkeys $keymap
-fi
-
-setxkbmap $layout
-
-if [ "$model" = "0" ] 
-then setxkbmap -model $model 
-fi
-
-if [ "$vary" = "0" ] 
-then setxkbmap -variant $variant
-fi
-# Getting Timezone
 timezone
 }
 timezone() {
@@ -445,34 +396,50 @@ root_password
 
 root_password() {
 rtpasswd=$(zenity --entry --title="$title" --width=450 --ok-label="Siguiente" --cancel-label="Atras" --text "Introduzca la contraseña para root." --hide-text)
-rtpasswd2=$(zenity --entry --title="$title" --width=450 --text "Vuelva a introducirla." --hide-text)
-	if [ "$rtpasswd" != "$rtpasswd2" ]
-		then zenity --error --height=100 --width=350 --title="$title" --text "Las contraseñas no coinciden, vuelva a intentarlo."
-		root_password
-	fi
 if [ "$?" = "1" ]
 then usernamez
 fi
 if [ "$rtpasswd" = "" ]
+then 
+zenity --error --height=100 --width=350 --title="$title" --text "No puede dejar este campo vacio."
+	root_password
+fi
+
+rtpasswd2=$(zenity --entry --title="$title" --width=450 --ok-label="Siguiente" --cancel-label="Atras" --text "Vuelva a introducirla." --hide-text)
+if [ "$?" = "1" ]
 then root_password
 fi
+	if [ "$rtpasswd" != "$rtpasswd2" ]
+		then zenity --error --height=100 --width=350 --title="$title" --text "Las contraseñas no coinciden, vuelva a intentarlo."
+		root_password
+	fi
+
+
 user_password
 }
 
 
 user_password() {
 userpasswd=$(zenity --entry --title="$title" --width=450 --ok-label="Siguiente" --cancel-label="Atras" --text "Introduzca la contraseña para $username." --hide-text)
-userpasswd2=$(zenity --entry --title="$title" --width=450 --ok-label="Siguiente" --cancel-label="Atras" --text "Vuelva a introducir la contraseña para $username." --hide-text)
-	if [ "$userpasswd" != "$userpasswd2" ]
-		then zenity --error --height=100 --width=450 --title="$title" --text "Las contraseñas no coinciden, vuelva a intentarlo."
-		user_password
-	fi
 if [ "$?" = "1" ]
 then root_password
 fi
 if [ "$userpasswd" = "" ]
+then 
+zenity --error --height=100 --width=350 --title="$title" --text "No puede dejar este campo vacio."
+	user_password
+fi
+
+userpasswd2=$(zenity --entry --title="$title" --width=450 --ok-label="Siguiente" --cancel-label="Atras" --text "Vuelva a introducir la contraseña para $username." --hide-text)
+if [ "$?" = "1" ]
 then user_password
 fi
+
+	if [ "$userpasswd" != "$userpasswd2" ]
+		then zenity --error --height=100 --width=450 --title="$title" --text "Las contraseñas no coinciden, vuelva a intentarlo."
+		user_password
+	fi
+
 kernel
 }
 
@@ -510,10 +477,10 @@ dm=$(zenity --list --title="$title" --radiolist --ok-label="Siguiente" --cancel-
 if [ "$?" = "1" ]
 then desktop
 fi
-revengerepo
+instalarchrepo
 }
 
-revengerepo() {
+instalarchrepo() {
 zenity --question --title="$title" --ok-label="Si" --cancel-label="No" --height=100 --width=350 --text="Desea agregar el repositorio oficial de Instalarch?     "
 rr="$?"
 multilib
@@ -581,57 +548,61 @@ installing
 
 # Installation
 installing() {
-zenity --question --height=150 --width=350 --ok-label="Continuar" --cancel-label="Abortar" --title="$title" --text "El proceso de instalacion esta por iniciar, todoas los paquetes seran descargados desde internet, asi que asegurese de contar con una conexion constante a internet.\nEste proceso puede demorar."
+zenity --question --height=150 --width=350 --ok-label="Continuar" --cancel-label="Abortar" --title="$title" --text "El proceso de instalacion esta por iniciar, todos los paquetes seran descargados desde internet, asi que asegurese de contar con una conexion constante a internet.\nEste proceso puede demorar."
 
 if [ "$?" = "1" ]
 	then exit
 else 
-## (
-# sorting pacman mirrors
-#(
+
+(
 echo "# Buscando los servidores mas rapidos..."
 rank=$(curl -s "https://www.archlinux.org/mirrorlist/?country="$country"&protocol=https&use_mirror_status=on" | sed -e 's/^#Server/Server/' -e '/^#/d' | rankmirrors -n 10 -)
 echo -e "$rank" > /etc/pacman.d/mirrorlist
 echo -e "$rank" > .mirrors.txt
 # updating pacman cache
 echo "5"
-echo "# Actualizando cache..."
+echo "# Actualizando cache y claves..."
 pacman -Syy
+pacman-key --populate archlinux
 echo "10"
-echo "15"
 #installing base
 echo "# Instalando Base..."
-pacstrap /mnt base bash nano vim-minimal vi linux-firmware cryptsetup e2fsprogs findutils gawk inetutils iproute2 jfsutils licenses linux-firmware logrotate lvm2 man-db man-pages mdadm pciutils procps-ng reiserfsprogs sysfsutils xfsprogs usbutils
+pacstrap /mnt base base-devel nano dhcpcd netctl iwd net-tools
+
 echo "# Instalando kernel..."
-echo "25"
+echo "15"
 if [ "$kernel" = "linux" ]
-	then pacstrap /mnt base base-devel linux
+	then pacstrap /mnt linux-firmware mkinitcpio linux-headers linux
 elif [ "$kernel" = "linux-lts" ]
-	then pacstrap /mnt base linux-lts base-devel
+	then pacstrap /mnt linux-firmware mkinitcpio linux-headers linux-lts
 elif [ "$kernel" = "linux-hardened" ]
-	then pacstrap /mnt base linux-hardened base-devel
+	then pacstrap /mnt linux-firmware mkinitcpio linux-headers linux-hardened
 elif [ "$kernel" = "linux-zen" ]
-	then pacstrap /mnt base linux-zen base-devel
+	then pacstrap /mnt linux-firmware mkinitcpio linux-headers linux-zen
 
 fi
-echo "30"
-#) | zenity --progress --percentage=0 --title="$title" --auto-close --width=450 --no-cancel
+echo "20"
+) | zenity --progress --percentage=0 --title="$title" --auto-close --width=450 --no-cancel
 #generating fstab
-#(
+(
 echo "# Generando tabla de particiones..."
 genfstab -p /mnt >> /mnt/etc/fstab
 if grep -q "/mnt/swapfile" "/mnt/etc/fstab"; then
 sed -i '/swapfile/d' /mnt/etc/fstab
 echo "/swapfile		none	swap	defaults	0	0" >> /mnt/etc/fstab
 fi
-#) | zenity --progress --title="$title" --width=450 --no-cancel --pulsate --auto-close
+) | zenity --progress --title="$title" --width=450 --no-cancel --pulsate --auto-close
 # installing video and audio packages
 
-#(
-echo "35"
+(
+echo "25"
 echo "# Instalando complementos..."
-pacstrap /mnt  mesa xorg-server xorg-apps xorg-xinit xorg-twm xterm xorg-drivers alsa-utils pulseaudio pulseaudio-alsa xf86-input-synaptics xf86-input-libinput b43-fwcutter networkmanager nm-connection-editor network-manager-applet polkit-gnome ttf-dejavu gnome-keyring xdg-user-dirs gvfs $videocontroller
-echo "40"
+pacstrap /mnt networkmanager ifplugd xf86-input-synaptics git wget xdg-user-dirs acpi pulseaudio pulseaudio-alsa alsa-utils fzf ntfs-3g polkit-gnome shotwell awesome noto-fonts-emoji gedit htop lsb-release nano nautilus gparted neofetch network-manager-applet rofi scrot sddm ttf-dejavu udiskie unzip xfce4-power-manager termite hddtemp light
+echo "30"
+echo "# Instalando servidor grafico..."
+pacstrap /mnt xorg xorg-apps xorg-xinit xorg-twm xorg-xclock $videocontroller
+echo "35"
+
 # virtualbox
 echo "# Instalando escritorio..."
 # installing chosen desktop
@@ -639,78 +610,63 @@ if [ "$desktops" = "Look at more window managers" ]
 then pacstrap /mnt $wm
 else pacstrap /mnt $desktops
 fi
-echo "45"
+echo "40"
 ##
-##
-##
-##
-# cups
-if [ "$cp" = "0" ]
-	then pacstrap /mnt ghostscript gsfonts system-config-printer gtk3-print-backends cups cups-pdf cups-filters
-arch_chroot "systemctl enable org.cups.cupsd.service"
-fi
-##
-##
-##
+
 ##
 
 echo "# Habilitando servicios..."
 # enabling network manager
+arch_chroot "systemctl enable dhcpcd"
 arch_chroot "systemctl enable NetworkManager"
-echo "50"
+arch_chroot "systemctl enable hddtemp.service "
+
+echo "42"
 echo "# Actualizando pacman.conf..."
 # adding revenge_repo
-if [ "$rr" = "0"  ]
-then 
-echo -e "\n[revenge_repo]" >> /mnt/etc/pacman.conf;echo "SigLevel = Optional TrustAll" >> /mnt/etc/pacman.conf;echo "Server = https://gitlab.com/spookykidmm/revenge_repo/raw/master/x86_64" >> /mnt/etc/pacman.conf;echo -e "Server = https://downloads.sourceforge.net/project/revenge-repo/revenge_repo/x86_64\n" >> /mnt/etc/pacman.conf
+echo -e "\n[instalarch_repo]" >> /mnt/etc/pacman.conf;echo -e "SigLevel = Optional TrustAll" >> /mnt/etc/pacman.conf;echo -e "Server = https://wilssonmartee.github.io/instalarch_repo/x86_64\n" >> /mnt/etc/pacman.conf
 echo "# Sincronizando base de datos..."
 arch_chroot "pacman -Syy"
-fi
-echo "55"
+
+echo "45"
 # installing pamac-aur
 if [ "$pm" = "0" ]
-
+then
 echo "# Instalando gestor de paquetes grafico..."
-then echo -e "\t[spooky_aur]" >> /mnt/etc/pacman.conf;echo "SigLevel = Optional TrustAll" >> /mnt/etc/pacman.conf;echo -e "Server = https://raw.github.com/spookykidmm/spooky_aur/master/x86_64\n" >> /mnt/etc/pacman.conf
-sudo pacman -Syy 
-arch_chroot "pacman -Syy"
 arch_chroot "pacman -S --noconfirm $pack"
 fi
-echo "60"
+echo "50"
 #multilib
 if [ "$multilib" = "0" ]
 then
 echo "# Habilitando multilib..."
 echo -e "\n[multilib]" >> /mnt/etc/pacman.conf;echo -e "Include = /etc/pacman.d/mirrorlist\n" >> /mnt/etc/pacman.conf
 fi
-echo "65"
+echo "55"
 # AUR
 if [ "$abs" = "0" ]
-	then if [ "$pm" = "0" ]
+	then 
+
 echo "# Instalando AUR Herlper..."
-		 then arch_chroot "pacman -Syy"
-		 	  arch_chroot "pacman -S --noconfirm yay"
-	else echo -e "\n[spooky_aur]" >> /mnt/etc/pacman.conf;echo "SigLevel = Optional TrustAll" >> /mnt/etc/pacman.conf;echo -e "Server = https://raw.github.com/spookykidmm/spooky_aur/master/x86_64\n" >> /mnt/etc/pacman.conf 
-    arch_chroot "pacman -Syy"
-	arch_chroot "pacman -S --noconfirm yay"
-	fi
+arch_chroot "pacman -S --noconfirm yay"
+
 fi
-echo "70"
+echo "60"
 echo "# Instalando ucode..."
 # installing bootloader
 proc=$(grep -m1 vendor_id /proc/cpuinfo | awk '{print $3}')
 if [ "$proc" = "GenuineIntel" ]
 then pacstrap /mnt intel-ucode
 elif [ "$proc" = "AuthenticAMD" ]
-then arch_chroot "pacman -R --noconfirm intel-ucode"
+then
 pacstrap /mnt amd-ucode
 fi
-echo "75"
+echo "65"
 if [ "$grb" = "0" ]
 	then 
 		echo "# Instalando os-prober..."
 		pacstrap /mnt os-prober
-		echo "78"
+		echo "68"
 		if [ "$SYSTEM" = 'BIOS' ]
 		then echo "# Instalando Bootloader (BIOS)..."
 		pacstrap /mnt grub
@@ -734,20 +690,11 @@ if [ "$grb" = "0" ]
 		[[ -e /mnt/boot/initramfs-linux-zen.img ]] && echo -e "title\tArch Linux Zen\nlinux\t/vmlinuz-linux-zen\ninitrd\t/initramfs-linux-zen.img\noptions\troot=${bl_root} rw" > /mnt/boot/loader/entries/Arch-zen.conf
 		fi
 fi
-echo "80"
+echo "70"
 # running mkinit
 echo "# Ejecutando mkinitcpio..."
 arch_chroot "mkinitcpio -p $kernel"
-echo "85"
-
-# installing chosen software
-echo "# Installing chosen software packages..."
-# Making Variables from Applications Lists
-
-sleep 5
-
-# Installing Selecting Applications
-
+echo "75"
 
 #root password
 echo "# Configurando usuario root..."
@@ -757,27 +704,30 @@ arch_chroot "passwd root" < .passwd >/dev/null
 rm .passwd
 
 #adding user
-echo "# Configurando nuevo usuario..."
-arch_chroot "useradd -m -g users -G adm,lp,wheel,power,audio,video -s /bin/bash $username"
+echo "# Configurando nuevo usuario $username..."
+
+arch_chroot "useradd -m -g users -G adm,lp,wheel,power,audio,video,input,games,mail,scanner,storage,disk -s /bin/bash $username"
 touch .passwd
 echo -e "$userpasswd\n$userpasswd2" > .passwd
 arch_chroot "passwd $username" < .passwd >/dev/null
 rm .passwd
-echo 90
+echo "80"
 #setting locale
-echo "# Generando Locale..."
+
+echo "# Configurando idioma..."
 echo "LANG=\"${locale}\"" > /mnt/etc/locale.conf
 echo "${locale} UTF-8" > /mnt/etc/locale.gen
 arch_chroot "locale-gen"
 export LANG=${locale}
 echo "# Configurando mapa del teclado..."
 #setting keymap
-mkdir -p /mnt/etc/X11/xorg.conf.d/
-echo -e 'Section "InputClass"\n\tIdentifier "system-keyboard"\n\tMatchIsKeyboard "on"\n\tOption "XkbLayout" "'$layout'"\n\tOption "XkbModel" "'$model'"\n\tOption "XkbVariant" ",'$variant'"\n\tOption "XkbOptions" "grp:alt_shift_toggle"\nEndSection' > /mnt/etc/X11/xorg.conf.d/00-keyboard.conf
+
 if [ "$map" = "1" ]
 then echo KEYMAP=$keymap >> /mnt/etc/vconsole.conf
 fi
-echo "93"
+echo "83"
+
+
 #setting timezone
 echo "# Configurando zona horaria..."
 arch_chroot "rm /etc/localtime"
@@ -794,6 +744,7 @@ arch_chroot "echo $hname > /etc/hostname"
 # setting n permissions
 echo "%wheel ALL=(ALL) ALL" >> /mnt/etc/sudoers
 
+echo "# Instalando shell..."
 # selecting shell
 shell="zsh"
 if [ "$shell" = "zsh" ]
@@ -803,7 +754,7 @@ then arch_chroot "pacman -S --noconfirm bash;chsh -s /bin/bash $username"
 elif [ "$shell" = "fish" ]
 then arch_chroot "pacman -S --noconfirm fish;chsh -s /usr/bin/fish $username"
 fi
-echo "95"
+echo "85"
 
 # starting desktop manager
 
@@ -813,14 +764,51 @@ if [ "$dm" = "lightdm" ]
 then pacstrap /mnt lightdm lightdm-gtk-greeter lightdm-gtk-greeter-settings;arch_chroot "systemctl enable lightdm.service"
 else pacstrap /mnt $dm;arch_chroot "systemctl enable $dm.service"
 fi
-echo "# Desmontando particiones..."
+
+# copying files and configs
+echo "# Descargando configuraciones..."
+echo "90"
+git clone https://github.com/wilssonmartee/config.git /mnt/
+echo "95"
+
+echo "# Guardando configuraciones..."
+cp -rf /mnt/config/awesome/themes/* /mnt/usr/share/themes/
+rm -rf /mnt/usr/share/icons/Adwaita
+rm -rf /mnt/usr/share/icons/default
+cp -rf /mnt/config/awesome/icons/* /mnt/usr/share/icons/
+cp -rf /mnt/config/awesome/fonts/* /mnt/usr/share/fonts
+cp -rf /mnt/config/awesome/awesome-rofi.rasi /mnt/usr/share/rofi/themes
+
+rm -rf /mnt/home/$username/.config
+cp -rf /mnt/config/awesome/.config /mnt/home/$username
+mv /mnt/config/awesome/.oh-my-zsh-files /mnt/config/awesome/.oh-my-zsh
+cp -rf /mnt/config/awesome/.oh-my-zsh /mnt/home/$username
+cp -rf /mnt/config/awesome/.zshrc /mnt/home/$username
+cp -rf /mnt/config/awesome/completion.zsh /mnt/usr/share/fzf
+
+cp -f /mnt/config/awesome/pacman.conf /mnt/etc/pacman.conf
+echo "97"
+arch_chroot "chmod -R 755 /home/$username/.config"
+arch_chroot "chmod -R 755 /home/$username/.oh-my-zsh"
+arch_chroot "chmod 755 /home/$username/.zshrc"
+arch_chroot "chown -R $username:users /home/$username/.config"
+arch_chroot "chown -R $username:users /home/$username/.oh-my-zsh"
+arch_chroot "chown $username:users /home/$username/.zshrc"
+
+cp -rf /mnt/config/awesome/gtkrc /mnt/usr/share/gtk-2.0
+cp -rf /mnt/config/awesome/settings.ini /mnt/usr/share/gtk-3.0
+echo "# Eliminando archivos temporales..."
+echo "99"
+rm -rf /mnt/config
+
 
 # unmounting partitions
+echo "# Desmontando particiones..."
 umount -R /mnt
 echo "100"
 echo "# Instalacion finalizada!"
-#) | zenity --progress --percentage=0 --title="$title" --ok-label="Reiniciar" --width=450 --no-cancel
-#reboot
+) | zenity --progress --percentage=0 --title="$title" --ok-label="Reiniciar" --width=450 --no-cancel
+reboot
 fi
 }
 
